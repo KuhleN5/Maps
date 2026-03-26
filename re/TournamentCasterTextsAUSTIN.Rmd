@@ -1,0 +1,149 @@
+---
+title: "Untitled"
+output: html_document
+date: "2026-03-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r}
+options(youtube_api_key = "AIzaSyDl9VzvHaxFtumr6xvyVRm3UczDhm7wXM4")
+```
+
+```{r}
+library(tuber)
+
+get_video_details(video_id = "meijWUaxNYg")
+```
+```{r}
+library(httr)
+library(jsonlite)
+
+video_id <- "meijWUaxNYg"
+api_key  <- "AIzaSyDl9VzvHaxFtumr6xvyVRm3UczDhm7wXM4"
+
+url <- paste0(
+  "https://www.googleapis.com/youtube/v3/videos?",
+  "part=snippet,statistics&id=", video_id,
+  "&key=", api_key
+)
+
+res <- GET(url)
+txt <- content(res, as = "text", encoding = "UTF-8")
+video_data <- fromJSON(txt, flatten = TRUE)
+
+video_data
+```
+```{r}
+video_data$items[, c(
+  "id",
+  "snippet.title",
+  "snippet.channelTitle",
+  "snippet.publishedAt",
+  "statistics.viewCount"
+)]
+```
+
+```{r}
+url <- paste0(
+  "https://www.googleapis.com/youtube/v3/captions?",
+  "part=snippet&videoId=", video_id,
+  "&key=", api_key
+)
+
+res <- GET(url)
+txt <- content(res, as = "text", encoding = "UTF-8")
+captions <- fromJSON(txt, flatten = TRUE)
+
+captions
+```
+ignore above, API wasn't working
+
+
+-----
+
+```{r}
+library(tidyverse)
+
+map1 <- readLines("AustinMap1.txt", warn = FALSE)
+map2 <- readLines("AustinMap2.txt", warn = FALSE)
+map3 <- readLines("AustinMap3.txt", warn = FALSE)
+
+df1 <- tibble(
+  event = "BLAST_Austin_Major_2025",
+  match = "Grand_Final",
+  map = 1,
+  casters = "Scrawny_Launders",
+  text = map1
+)
+
+df2 <- tibble(
+  event = "BLAST_Austin_Major_2025",
+  match = "Grand_Final",
+  map = 2,
+  casters = "Scrawny_Launders",
+  text = map2
+)
+
+df3 <- tibble(
+  event = "BLAST_Austin_Major_2025",
+  match = "Grand_Final",
+  map = 3,
+  casters = "Scrawny_Launders",
+  text = map3
+)
+
+austin_maps <- bind_rows(df1, df2, df3)
+
+glimpse(austin_maps)
+```
+```{r}
+library(dplyr)
+library(stringr)
+
+austin_maps <- austin_maps %>%
+  mutate(line_id = row_number())
+
+austin_maps_clean <- austin_maps %>%
+  mutate(
+    text_clean = text,
+    text_clean = str_remove_all(text_clean, "\\d{1,2}:\\d{2}:\\d{2}"),
+    text_clean = str_remove_all(text_clean, "\\d{1,2}:\\d{2}"),
+    text_clean = str_remove_all(text_clean, "\\d+ hours?, \\d+ minutes?(, \\d+ seconds?)?"),
+    text_clean = str_remove_all(text_clean, "\\[.*?\\]"),
+    text_clean = str_squish(text_clean)
+  ) %>%
+  filter(text_clean != "")
+```
+
+```{r}
+austin_maps_clean %>%
+  select(line_id, map, text, text_clean) %>%
+  slice(1:10)
+```
+
+```{r}
+library(tidytext)
+
+tokens <- austin_maps_clean %>%
+  unnest_tokens(word, text_clean)
+```
+
+```{r}
+data("stop_words")
+
+tokens_nostop <- tokens %>%
+  anti_join(stop_words, by = "word")
+```
+
+```{r}
+tokens_nostop %>%
+  count(word, sort = TRUE) %>%
+  slice_head(n = 20)
+```
+
+sentiment next
